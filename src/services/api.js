@@ -1,4 +1,6 @@
-const API_BASE = 'http://localhost:3001/api';
+// In production (Vercel), use relative URLs since frontend and API are on same domain
+// In development, proxy to local Express server
+const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
 
 class ApiService {
     constructor() {
@@ -88,6 +90,10 @@ class ApiService {
         return this.request('/dashboard/today-followups');
     }
 
+    async getUpcomingServices() {
+        return this.request('/dashboard/upcoming-services');
+    }
+
     // Prospects
     async getProspects(params = {}) {
         const query = new URLSearchParams(params).toString();
@@ -142,6 +148,51 @@ class ApiService {
 
     async deleteFollowUp(id) {
         return this.request(`/followups/${id}`, { method: 'DELETE' });
+    }
+
+    // Services
+    async getServices(params = {}) {
+        const query = new URLSearchParams(params).toString();
+        return this.request(`/services${query ? `?${query}` : ''}`);
+    }
+
+    async getService(id) {
+        return this.request(`/services/${id}`);
+    }
+
+    async getTodayServices() {
+        return this.request('/services/today');
+    }
+
+    async getTodayServicesCount() {
+        return this.request('/services/today-count');
+    }
+
+    async getUpcomingServicesList() {
+        return this.request('/services/upcoming');
+    }
+
+    async autoGenerateServices(prospectId) {
+        return this.request('/services/auto-generate', {
+            method: 'POST',
+            body: JSON.stringify({ prospectId }),
+        });
+    }
+
+    async updateService(id, data) {
+        return this.request(`/services/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async deleteService(id) {
+        return this.request(`/services/${id}`, { method: 'DELETE' });
+    }
+
+    // Health check
+    async healthCheck() {
+        return this.request('/health');
     }
 }
 

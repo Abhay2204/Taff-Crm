@@ -1,33 +1,52 @@
 import { useState } from 'react';
-import { Eye, Edit, Trash2, Phone, Mail, Plus, FileSpreadsheet } from 'lucide-react';
-import { Card, CardHeader, CardBody, Button, DataTable, Badge } from '../../components/UI';
+import { Eye, Edit, Trash2, Phone, Plus, FileSpreadsheet } from 'lucide-react';
+import { Card, CardHeader, CardBody, Button, DataTable, Badge, Select } from '../../components/UI';
 import { useNavigate } from 'react-router-dom';
 import { exportToExcel } from '../../utils/exportExcel';
 
+const talukaFilterOptions = [
+    { value: '', label: 'All Talukas' },
+    { value: 'Mul', label: 'Mul' },
+    { value: 'Chandrapur', label: 'Chandrapur' },
+    { value: 'Bramhapuri', label: 'Bramhapuri' },
+    { value: 'Warora', label: 'Warora' },
+    { value: 'Bhadravati', label: 'Bhadravati' },
+    { value: 'Chimur', label: 'Chimur' },
+    { value: 'Nagbhid', label: 'Nagbhid' },
+    { value: 'Sindewahi', label: 'Sindewahi' },
+    { value: 'Rajura', label: 'Rajura' },
+    { value: 'Gondpipri', label: 'Gondpipri' },
+    { value: 'Pombhurna', label: 'Pombhurna' },
+    { value: 'Jivati', label: 'Jivati' },
+    { value: 'Ballarpur', label: 'Ballarpur' },
+    { value: 'Korpana', label: 'Korpana' },
+    { value: 'Saoli', label: 'Saoli' },
+];
+
 // Sample data
 const prospectsData = [
-    { id: 1, refNo: 'PRO-001', name: 'John Smith', mobile: '9876543210', email: 'john@email.com', source: 'Website', status: 'New', createdAt: '2026-02-02' },
-    { id: 2, refNo: 'PRO-002', name: 'Sarah Johnson', mobile: '9876543211', email: 'sarah@email.com', source: 'Referral', status: 'Contacted', createdAt: '2026-02-01' },
-    { id: 3, refNo: 'PRO-003', name: 'Mike Chen', mobile: '9876543212', email: 'mike@email.com', source: 'Walk-in', status: 'Follow Up', createdAt: '2026-02-01' },
-    { id: 4, refNo: 'PRO-004', name: 'Emily Davis', mobile: '9876543213', email: 'emily@email.com', source: 'Phone', status: 'Qualified', createdAt: '2026-01-31' },
-    { id: 5, refNo: 'PRO-005', name: 'Robert Wilson', mobile: '9876543214', email: 'robert@email.com', source: 'Email', status: 'New', createdAt: '2026-01-31' },
-    { id: 6, refNo: 'PRO-006', name: 'Lisa Brown', mobile: '9876543215', email: 'lisa@email.com', source: 'Exhibition', status: 'Converted', createdAt: '2026-01-30' },
-    { id: 7, refNo: 'PRO-007', name: 'James Taylor', mobile: '9876543216', email: 'james@email.com', source: 'Social', status: 'Lost', createdAt: '2026-01-30' },
-    { id: 8, refNo: 'PRO-008', name: 'Maria Garcia', mobile: '9876543217', email: 'maria@email.com', source: 'Website', status: 'New', createdAt: '2026-01-29' },
-    { id: 9, refNo: 'PRO-009', name: 'David Lee', mobile: '9876543218', email: 'david@email.com', source: 'Referral', status: 'Contacted', createdAt: '2026-01-29' },
-    { id: 10, refNo: 'PRO-010', name: 'Anna White', mobile: '9876543219', email: 'anna@email.com', source: 'Walk-in', status: 'Follow Up', createdAt: '2026-01-28' },
+    { id: 1, refNo: 'PRO-001', name: 'John Smith', mobile: '9876543210', taluka: 'Chandrapur', status: 'New', createdAt: '2026-02-02' },
+    { id: 2, refNo: 'PRO-002', name: 'Sarah Johnson', mobile: '9876543211', taluka: 'Mul', status: 'Contacted', createdAt: '2026-02-01' },
+    { id: 3, refNo: 'PRO-003', name: 'Mike Chen', mobile: '9876543212', taluka: 'Bramhapuri', status: 'Follow Up', createdAt: '2026-02-01' },
+    { id: 4, refNo: 'PRO-004', name: 'Emily Davis', mobile: '9876543213', taluka: 'Warora', status: 'Qualified', createdAt: '2026-01-31' },
+    { id: 5, refNo: 'PRO-005', name: 'Robert Wilson', mobile: '9876543214', taluka: 'Chandrapur', status: 'New', createdAt: '2026-01-31' },
+    { id: 6, refNo: 'PRO-006', name: 'Lisa Brown', mobile: '9876543215', taluka: 'Mul', status: 'Converted', createdAt: '2026-01-30' },
+    { id: 7, refNo: 'PRO-007', name: 'James Taylor', mobile: '9876543216', taluka: 'Bramhapuri', status: 'Lost', createdAt: '2026-01-30' },
+    { id: 8, refNo: 'PRO-008', name: 'Maria Garcia', mobile: '9876543217', taluka: 'Chimur', status: 'New', createdAt: '2026-01-29' },
+    { id: 9, refNo: 'PRO-009', name: 'David Lee', mobile: '9876543218', taluka: 'Chandrapur', status: 'Contacted', createdAt: '2026-01-29' },
+    { id: 10, refNo: 'PRO-010', name: 'Anna White', mobile: '9876543219', taluka: 'Warora', status: 'Follow Up', createdAt: '2026-01-28' },
 ];
 
 export default function ViewProspect() {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('all');
+    const [talukaFilter, setTalukaFilter] = useState('');
 
     const columns = [
         { key: 'refNo', label: 'Ref No.', width: '100px' },
         { key: 'name', label: 'Name' },
         { key: 'mobile', label: 'Mobile' },
-        { key: 'email', label: 'Email' },
-        { key: 'source', label: 'Source' },
+        { key: 'taluka', label: 'Taluka' },
         {
             key: 'status',
             label: 'Status',
@@ -38,6 +57,7 @@ export default function ViewProspect() {
                     'Follow Up': 'warning',
                     'Qualified': 'success',
                     'Converted': 'success',
+                    'Delivered': 'success',
                     'Lost': 'danger'
                 };
                 return <Badge variant={variants[value] || 'secondary'}>{value}</Badge>;
@@ -59,9 +79,6 @@ export default function ViewProspect() {
                     <Button variant="ghost" size="sm" title="Call">
                         <Phone size={16} />
                     </Button>
-                    <Button variant="ghost" size="sm" title="Email">
-                        <Mail size={16} />
-                    </Button>
                 </div>
             )
         }
@@ -75,7 +92,8 @@ export default function ViewProspect() {
         { key: 'converted', label: 'Converted', count: prospectsData.filter(p => p.status === 'Converted').length },
     ];
 
-    const filteredData = activeTab === 'all'
+    // Apply tab + taluka filter
+    let filteredData = activeTab === 'all'
         ? prospectsData
         : prospectsData.filter(p => {
             if (activeTab === 'new') return p.status === 'New';
@@ -85,13 +103,16 @@ export default function ViewProspect() {
             return true;
         });
 
+    if (talukaFilter) {
+        filteredData = filteredData.filter(p => p.taluka === talukaFilter);
+    }
+
     const handleExport = () => {
         const exportData = filteredData.map(p => ({
             'Ref No': p.refNo,
             'Name': p.name,
             'Mobile': p.mobile,
-            'Email': p.email,
-            'Source': p.source,
+            'Taluka': p.taluka,
             'Status': p.status,
             'Created Date': p.createdAt
         }));
@@ -112,7 +133,16 @@ export default function ViewProspect() {
                         </button>
                     ))}
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+                    <div style={{ minWidth: '160px' }}>
+                        <Select
+                            name="talukaFilter"
+                            value={talukaFilter}
+                            onChange={(e) => setTalukaFilter(e.target.value)}
+                            options={talukaFilterOptions}
+                            placeholder="Filter by Taluka"
+                        />
+                    </div>
                     <Button
                         variant="secondary"
                         icon={FileSpreadsheet}
@@ -136,7 +166,7 @@ export default function ViewProspect() {
                         columns={columns}
                         data={filteredData}
                         searchable={true}
-                        searchPlaceholder="Search by name, mobile, email..."
+                        searchPlaceholder="Search by name, mobile..."
                         pagination={true}
                         pageSize={10}
                     />

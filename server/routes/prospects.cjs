@@ -1,60 +1,88 @@
 const express = require('express');
+const Prospect = require('../models/Prospect.cjs');
+const Service = require('../models/Service.cjs');
+const User = require('../models/User.cjs');
 const { v4: uuidv4 } = require('uuid');
-const db = require('../db/index.cjs');
 
 const router = express.Router();
 
-// Get all prospects with filters
-router.get('/', (req, res) => {
+// Helper: Auto-create service records when vehicle is delivered
+async function autoCreateServices(prospect) {
+    const existingCount = await Service.countDocuments({ prospect_id: prospect._id });
+    if (existingCount > 0) return;
+
+    const deliveryDate = prospect.delivery_date || new Date().toISOString().split('T')[0];
+    const customerName = `${prospect.first_name} ${prospect.last_name || ''}`.trim();
+
+    const milestones = [
+        { month: '1st Month', offset: 1 },
+        { month: '4th Month', offset: 4 },
+        { month: '7th Month', offset: 7 },
+        { month: '12th Month', offset: 12 },
+    ];
+
+    const services = milestones.map(m => {
+        const date = new Date(deliveryDate);
+        date.setMonth(date.getMonth() + m.offset);
+        return {
+            prospect_id: prospect._id,
+            vehicle_model: prospect.model || '',
+            customer_name: customerName,
+            customer_mobile: prospect.mobile,
+            taluka: prospect.taluka || prospect.city || '',
+            delivery_date: deliveryDate,
+            service_month: m.month,
+            service_date: date.toISOString().split('T')[0],
+            status: 'Pending',
+        };
+    });
+
+    await Service.insertMany(services);
+}
+
+// Get all prospects with filters & pagination
+router.get('/', async (req, res) => {
     try {
-        const { status, source, salesperson, search, fromDate, toDate, page = 1, limit = 10 } = req.query;
+        const { status, source, salesperson, taluka, search, page = 1, limit = 20 } = req.query;
 
-        let query = `
-      SELECT p.*, u.name as salesperson_name 
-      FROM prospects p 
-      LEFT JOIN users u ON p.salesperson_id = u.id 
-      WHERE 1=1
-    `;
-        const params = [];
-
-        if (status) {
-            query += ' AND p.status = ?';
-            params.push(status);
-        }
-        if (source) {
-            query += ' AND p.source = ?';
-            params.push(source);
-        }
-        if (salesperson) {
-            query += ' AND p.salesperson_id = ?';
-            params.push(salesperson);
-        }
+        const filter = {};
+        if (status) filter.status = status;
+        if (source) filter.source = source;
+        if (salesperson) filter.salesperson_id = salesperson;
+        if (taluka) filter.taluka = taluka;
         if (search) {
-            query += ' AND (p.first_name LIKE ? OR p.last_name LIKE ? OR p.mobile LIKE ? OR p.email LIKE ? OR p.ref_no LIKE ?)';
-            const searchTerm = `%${search}%`;
-            params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
-        }
-        if (fromDate) {
-            query += ' AND DATE(p.created_at) >= ?';
-            params.push(fromDate);
-        }
-        if (toDate) {
-            query += ' AND DATE(p.created_at) <= ?';
-            params.push(toDate);
+            filter.$or = [
+                { first_name: { $regex: search, $options: 'i' } },
+                { last_name: { $regex: search, $options: 'i' } },
+                { mobile: { $regex: search, $options: 'i' } },
+                { ref_no: { $regex: search, $options: 'i' } },
+            ];
         }
 
-        // Get total count
-        const countQuery = query.replace('SELECT p.*, u.name as salesperson_name', 'SELECT COUNT(*) as total');
-        const { total } = db.prepare(countQuery).get(...params);
+        const total = await Prospect.countDocuments(filter);
+        const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        // Add pagination
-        query += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?';
-        params.push(parseInt(limit), (parseInt(page) - 1) * parseInt(limit));
+        const prospects = await Prospect.find(filter)
+            .sort({ created_at: -1 })
+            .skip(skip)
+            .limit(parseInt(limit));
 
-        const prospects = db.prepare(query).all(...params);
+        // Populate salesperson name
+        const userIds = [...new Set(prospects.map(p => p.salesperson_id).filter(Boolean))];
+        const users = userIds.length > 0
+            ? await User.find({ _id: { $in: userIds } }).select('name')
+            : [];
+        const userMap = {};
+        users.forEach(u => { userMap[u._id] = u.name; });
+
+        const data = prospects.map(p => {
+            const obj = p.toJSON();
+            obj.salesperson_name = userMap[obj.salesperson_id] || '';
+            return obj;
+        });
 
         res.json({
-            data: prospects,
+            data,
             pagination: {
                 page: parseInt(page),
                 limit: parseInt(limit),
@@ -68,53 +96,61 @@ router.get('/', (req, res) => {
 });
 
 // Get single prospect
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
     try {
-        const prospect = db.prepare(`
-      SELECT p.*, u.name as salesperson_name 
-      FROM prospects p 
-      LEFT JOIN users u ON p.salesperson_id = u.id 
-      WHERE p.id = ? OR p.ref_no = ?
-    `).get(req.params.id, req.params.id);
-
+        const prospect = await Prospect.findById(req.params.id);
         if (!prospect) {
             return res.status(404).json({ error: 'Prospect not found' });
         }
 
-        // Get follow-ups for this prospect
-        const followUps = db.prepare(`
-      SELECT f.*, u.name as created_by_name 
-      FROM follow_ups f 
-      LEFT JOIN users u ON f.created_by = u.id 
-      WHERE f.prospect_id = ? 
-      ORDER BY f.follow_up_date DESC
-    `).all(prospect.id);
+        const obj = prospect.toJSON();
+        if (obj.salesperson_id) {
+            const user = await User.findById(obj.salesperson_id).select('name');
+            obj.salesperson_name = user ? user.name : '';
+        }
 
-        res.json({ ...prospect, follow_ups: followUps });
+        res.json(obj);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
 // Create prospect
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
     try {
-        const { firstName, lastName, mobile, email, address, city, source, vehicleType, model, budget, salespersonId, remarks } = req.body;
+        const {
+            firstName, lastName, mobile, email, address, city, taluka,
+            source, model, vehicleType, budget, status, salespersonId,
+            deliveryDate, remarks
+        } = req.body;
 
         if (!firstName || !mobile) {
             return res.status(400).json({ error: 'First name and mobile are required' });
         }
 
-        const id = uuidv4();
-        const count = db.prepare('SELECT COUNT(*) as count FROM prospects').get().count;
-        const refNo = `PRO-${String(count + 1).padStart(3, '0')}`;
+        const prospect = await Prospect.create({
+            first_name: firstName,
+            last_name: lastName || '',
+            mobile,
+            email: email || '',
+            address: address || '',
+            city: city || '',
+            taluka: taluka || '',
+            source: source || '',
+            model: model || '',
+            vehicle_type: vehicleType || '',
+            budget: budget || '',
+            status: status || 'New',
+            salesperson_id: salespersonId || '',
+            delivery_date: deliveryDate || '',
+            remarks: remarks || '',
+        });
 
-        db.prepare(`
-      INSERT INTO prospects (id, ref_no, first_name, last_name, mobile, email, address, city, source, vehicle_type, model, budget, salesperson_id, remarks)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, refNo, firstName, lastName, mobile, email, address, city, source, vehicleType, model, budget, salespersonId, remarks);
+        // If status is Delivered, auto-create services
+        if (prospect.status === 'Delivered') {
+            await autoCreateServices(prospect);
+        }
 
-        const prospect = db.prepare('SELECT * FROM prospects WHERE id = ?').get(id);
         res.status(201).json(prospect);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -122,48 +158,66 @@ router.post('/', (req, res) => {
 });
 
 // Update prospect
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
     try {
-        const { firstName, lastName, mobile, email, address, city, source, vehicleType, model, budget, salespersonId, status, remarks } = req.body;
+        const {
+            firstName, lastName, mobile, email, address, city, taluka,
+            source, model, vehicleType, budget, status, salespersonId,
+            deliveryDate, remarks
+        } = req.body;
 
-        const existing = db.prepare('SELECT id FROM prospects WHERE id = ?').get(req.params.id);
+        const existing = await Prospect.findById(req.params.id);
         if (!existing) {
             return res.status(404).json({ error: 'Prospect not found' });
         }
 
-        db.prepare(`
-      UPDATE prospects SET 
-        first_name = COALESCE(?, first_name),
-        last_name = COALESCE(?, last_name),
-        mobile = COALESCE(?, mobile),
-        email = COALESCE(?, email),
-        address = COALESCE(?, address),
-        city = COALESCE(?, city),
-        source = COALESCE(?, source),
-        vehicle_type = COALESCE(?, vehicle_type),
-        model = COALESCE(?, model),
-        budget = COALESCE(?, budget),
-        salesperson_id = COALESCE(?, salesperson_id),
-        status = COALESCE(?, status),
-        remarks = COALESCE(?, remarks),
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(firstName, lastName, mobile, email, address, city, source, vehicleType, model, budget, salespersonId, status, remarks, req.params.id);
+        const previousStatus = existing.status;
 
-        const prospect = db.prepare('SELECT * FROM prospects WHERE id = ?').get(req.params.id);
+        // Build update object (only include provided fields)
+        const updateData = {};
+        if (firstName !== undefined) updateData.first_name = firstName;
+        if (lastName !== undefined) updateData.last_name = lastName;
+        if (mobile !== undefined) updateData.mobile = mobile;
+        if (email !== undefined) updateData.email = email;
+        if (address !== undefined) updateData.address = address;
+        if (city !== undefined) updateData.city = city;
+        if (taluka !== undefined) updateData.taluka = taluka;
+        if (source !== undefined) updateData.source = source;
+        if (model !== undefined) updateData.model = model;
+        if (vehicleType !== undefined) updateData.vehicle_type = vehicleType;
+        if (budget !== undefined) updateData.budget = budget;
+        if (status !== undefined) updateData.status = status;
+        if (salespersonId !== undefined) updateData.salesperson_id = salespersonId;
+        if (deliveryDate !== undefined) updateData.delivery_date = deliveryDate;
+        if (remarks !== undefined) updateData.remarks = remarks;
+
+        const prospect = await Prospect.findByIdAndUpdate(req.params.id, updateData, { new: true });
+
+        // If status changed to Delivered, auto-create service records
+        if (status === 'Delivered' && previousStatus !== 'Delivered') {
+            await autoCreateServices(prospect);
+        }
+
         res.json(prospect);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// Delete prospect
-router.delete('/:id', (req, res) => {
+// Delete prospect (cascade delete follow-ups and services)
+router.delete('/:id', async (req, res) => {
     try {
-        const result = db.prepare('DELETE FROM prospects WHERE id = ?').run(req.params.id);
-        if (result.changes === 0) {
+        const prospect = await Prospect.findById(req.params.id);
+        if (!prospect) {
             return res.status(404).json({ error: 'Prospect not found' });
         }
+
+        // Cascade delete
+        const FollowUp = require('../models/FollowUp.cjs');
+        await FollowUp.deleteMany({ prospect_id: req.params.id });
+        await Service.deleteMany({ prospect_id: req.params.id });
+        await Prospect.findByIdAndDelete(req.params.id);
+
         res.json({ message: 'Prospect deleted successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });

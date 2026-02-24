@@ -1,56 +1,68 @@
 const express = require('express');
-const { v4: uuidv4 } = require('uuid');
-const db = require('../db/index.cjs');
+const FollowUp = require('../models/FollowUp.cjs');
+const Prospect = require('../models/Prospect.cjs');
+const User = require('../models/User.cjs');
 
 const router = express.Router();
 
 // Get all follow-ups with filters
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     try {
         const { status, type, salesperson, fromDate, toDate, page = 1, limit = 10 } = req.query;
 
-        let query = `
-      SELECT f.*, p.ref_no, p.first_name, p.last_name, p.mobile,
-             u.name as created_by_name
-      FROM follow_ups f
-      JOIN prospects p ON f.prospect_id = p.id
-      LEFT JOIN users u ON f.created_by = u.id
-      WHERE 1=1
-    `;
-        const params = [];
-
-        if (status) {
-            query += ' AND f.status = ?';
-            params.push(status);
-        }
-        if (type) {
-            query += ' AND f.follow_up_type = ?';
-            params.push(type);
-        }
-        if (salesperson) {
-            query += ' AND f.created_by = ?';
-            params.push(salesperson);
-        }
-        if (fromDate) {
-            query += ' AND f.follow_up_date >= ?';
-            params.push(fromDate);
-        }
-        if (toDate) {
-            query += ' AND f.follow_up_date <= ?';
-            params.push(toDate);
+        const filter = {};
+        if (status) filter.status = status;
+        if (type) filter.follow_up_type = type;
+        if (salesperson) filter.created_by = salesperson;
+        if (fromDate && toDate) {
+            filter.follow_up_date = { $gte: fromDate, $lte: toDate };
+        } else if (fromDate) {
+            filter.follow_up_date = { $gte: fromDate };
+        } else if (toDate) {
+            filter.follow_up_date = { $lte: toDate };
         }
 
-        const countQuery = query.replace(/SELECT f\.\*, p\.ref_no.*created_by_name/, 'SELECT COUNT(*) as total');
-        const { total } = db.prepare(countQuery).get(...params);
+        const total = await FollowUp.countDocuments(filter);
+        const skip = (parseInt(page) - 1) * parseInt(limit);
 
-        query += ' ORDER BY f.follow_up_date DESC, f.follow_up_time DESC LIMIT ? OFFSET ?';
-        params.push(parseInt(limit), (parseInt(page) - 1) * parseInt(limit));
+        const followUps = await FollowUp.find(filter)
+            .sort({ follow_up_date: -1, follow_up_time: -1 })
+            .skip(skip)
+            .limit(parseInt(limit));
 
-        const followUps = db.prepare(query).all(...params);
+        // Populate prospect and user info
+        const prospectIds = [...new Set(followUps.map(f => f.prospect_id).filter(Boolean))];
+        const userIds = [...new Set(followUps.map(f => f.created_by).filter(Boolean))];
+
+        const [prospects, users] = await Promise.all([
+            prospectIds.length > 0 ? Prospect.find({ _id: { $in: prospectIds } }).select('ref_no first_name last_name mobile') : [],
+            userIds.length > 0 ? User.find({ _id: { $in: userIds } }).select('name') : []
+        ]);
+
+        const prospectMap = {};
+        prospects.forEach(p => { prospectMap[p._id] = p; });
+        const userMap = {};
+        users.forEach(u => { userMap[u._id] = u.name; });
+
+        const data = followUps.map(f => {
+            const obj = f.toJSON();
+            const prospect = prospectMap[obj.prospect_id] || {};
+            obj.ref_no = prospect.ref_no || '';
+            obj.first_name = prospect.first_name || '';
+            obj.last_name = prospect.last_name || '';
+            obj.mobile = prospect.mobile || '';
+            obj.created_by_name = userMap[obj.created_by] || '';
+            return obj;
+        });
 
         res.json({
-            data: followUps,
-            pagination: { page: parseInt(page), limit: parseInt(limit), total, totalPages: Math.ceil(total / parseInt(limit)) }
+            data,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                totalPages: Math.ceil(total / parseInt(limit))
+            }
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -58,43 +70,65 @@ router.get('/', (req, res) => {
 });
 
 // Get today's follow-ups
-router.get('/today', (req, res) => {
+router.get('/today', async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];
-        const followUps = db.prepare(`
-      SELECT f.*, p.ref_no, p.first_name, p.last_name, p.mobile
-      FROM follow_ups f
-      JOIN prospects p ON f.prospect_id = p.id
-      WHERE f.follow_up_date = ? AND f.status != 'Completed'
-      ORDER BY f.follow_up_time ASC
-    `).all(today);
-        res.json(followUps);
+
+        const followUps = await FollowUp.find({
+            follow_up_date: today,
+            status: { $ne: 'Completed' }
+        }).sort({ follow_up_time: 1 });
+
+        // Populate prospect info
+        const prospectIds = followUps.map(f => f.prospect_id).filter(Boolean);
+        const prospects = prospectIds.length > 0
+            ? await Prospect.find({ _id: { $in: prospectIds } }).select('ref_no first_name last_name mobile')
+            : [];
+        const prospectMap = {};
+        prospects.forEach(p => { prospectMap[p._id] = p; });
+
+        const data = followUps.map(f => {
+            const obj = f.toJSON();
+            const prospect = prospectMap[obj.prospect_id] || {};
+            obj.ref_no = prospect.ref_no || '';
+            obj.first_name = prospect.first_name || '';
+            obj.last_name = prospect.last_name || '';
+            obj.mobile = prospect.mobile || '';
+            return obj;
+        });
+
+        res.json(data);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
 // Get single follow-up
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
     try {
-        const followUp = db.prepare(`
-      SELECT f.*, p.ref_no, p.first_name, p.last_name, p.mobile, p.email
-      FROM follow_ups f
-      JOIN prospects p ON f.prospect_id = p.id
-      WHERE f.id = ?
-    `).get(req.params.id);
-
+        const followUp = await FollowUp.findById(req.params.id);
         if (!followUp) {
             return res.status(404).json({ error: 'Follow-up not found' });
         }
-        res.json(followUp);
+
+        const obj = followUp.toJSON();
+        const prospect = await Prospect.findById(obj.prospect_id).select('ref_no first_name last_name mobile email');
+        if (prospect) {
+            obj.ref_no = prospect.ref_no;
+            obj.first_name = prospect.first_name;
+            obj.last_name = prospect.last_name;
+            obj.mobile = prospect.mobile;
+            obj.email = prospect.email;
+        }
+
+        res.json(obj);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
 // Create follow-up
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
     try {
         const { prospectId, followUpType, followUpDate, followUpTime, status = 'Pending', outcome, nextFollowUpDate, remarks, createdBy } = req.body;
 
@@ -102,20 +136,25 @@ router.post('/', (req, res) => {
             return res.status(400).json({ error: 'Prospect ID, follow-up type, and date are required' });
         }
 
-        const id = uuidv4();
-        db.prepare(`
-      INSERT INTO follow_ups (id, prospect_id, follow_up_type, follow_up_date, follow_up_time, status, outcome, next_follow_up_date, remarks, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, prospectId, followUpType, followUpDate, followUpTime, status, outcome, nextFollowUpDate, remarks, createdBy);
+        const followUp = await FollowUp.create({
+            prospect_id: prospectId,
+            follow_up_type: followUpType,
+            follow_up_date: followUpDate,
+            follow_up_time: followUpTime || '',
+            status,
+            outcome: outcome || '',
+            next_follow_up_date: nextFollowUpDate || '',
+            remarks: remarks || '',
+            created_by: createdBy || '',
+        });
 
         // Update prospect status if needed
         if (outcome === 'Converted') {
-            db.prepare('UPDATE prospects SET status = ? WHERE id = ?').run('Converted', prospectId);
+            await Prospect.findByIdAndUpdate(prospectId, { status: 'Converted' });
         } else if (outcome === 'Not Interested') {
-            db.prepare('UPDATE prospects SET status = ? WHERE id = ?').run('Lost', prospectId);
+            await Prospect.findByIdAndUpdate(prospectId, { status: 'Lost' });
         }
 
-        const followUp = db.prepare('SELECT * FROM follow_ups WHERE id = ?').get(id);
         res.status(201).json(followUp);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -123,23 +162,24 @@ router.post('/', (req, res) => {
 });
 
 // Update follow-up
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
     try {
         const { followUpType, followUpDate, followUpTime, status, outcome, nextFollowUpDate, remarks } = req.body;
 
-        db.prepare(`
-      UPDATE follow_ups SET
-        follow_up_type = COALESCE(?, follow_up_type),
-        follow_up_date = COALESCE(?, follow_up_date),
-        follow_up_time = COALESCE(?, follow_up_time),
-        status = COALESCE(?, status),
-        outcome = COALESCE(?, outcome),
-        next_follow_up_date = COALESCE(?, next_follow_up_date),
-        remarks = COALESCE(?, remarks)
-      WHERE id = ?
-    `).run(followUpType, followUpDate, followUpTime, status, outcome, nextFollowUpDate, remarks, req.params.id);
+        const updateData = {};
+        if (followUpType !== undefined) updateData.follow_up_type = followUpType;
+        if (followUpDate !== undefined) updateData.follow_up_date = followUpDate;
+        if (followUpTime !== undefined) updateData.follow_up_time = followUpTime;
+        if (status !== undefined) updateData.status = status;
+        if (outcome !== undefined) updateData.outcome = outcome;
+        if (nextFollowUpDate !== undefined) updateData.next_follow_up_date = nextFollowUpDate;
+        if (remarks !== undefined) updateData.remarks = remarks;
 
-        const followUp = db.prepare('SELECT * FROM follow_ups WHERE id = ?').get(req.params.id);
+        const followUp = await FollowUp.findByIdAndUpdate(req.params.id, updateData, { new: true });
+        if (!followUp) {
+            return res.status(404).json({ error: 'Follow-up not found' });
+        }
+
         res.json(followUp);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -147,10 +187,10 @@ router.put('/:id', (req, res) => {
 });
 
 // Delete follow-up
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
     try {
-        const result = db.prepare('DELETE FROM follow_ups WHERE id = ?').run(req.params.id);
-        if (result.changes === 0) {
+        const result = await FollowUp.findByIdAndDelete(req.params.id);
+        if (!result) {
             return res.status(404).json({ error: 'Follow-up not found' });
         }
         res.json({ message: 'Follow-up deleted successfully' });

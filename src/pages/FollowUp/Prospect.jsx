@@ -1,26 +1,30 @@
 import { useState } from 'react';
-import { Save, Plus, X, Search } from 'lucide-react';
+import { Save, Plus, X } from 'lucide-react';
 import { Card, CardHeader, CardBody, Button, Input, Textarea, Select, Checkbox, CheckboxGroup } from '../../components/UI';
 import { useToast } from '../../context/ToastContext';
 
 const sourceOptions = [
-    { value: 'website', label: 'Website' },
-    { value: 'referral', label: 'Referral' },
-    { value: 'walk-in', label: 'Walk-in' },
-    { value: 'phone', label: 'Phone Call' },
-    { value: 'email', label: 'Email' },
-    { value: 'social', label: 'Social Media' },
-    { value: 'exhibition', label: 'Exhibition/Event' },
-    { value: 'other', label: 'Other' },
+    { value: 'Walk in', label: 'Walk in' },
+    { value: 'Phone', label: 'Phone' },
+    { value: 'Visited', label: 'Visited' },
 ];
 
-const vehicleTypeOptions = [
-    { value: 'sedan', label: 'Sedan' },
-    { value: 'suv', label: 'SUV' },
-    { value: 'hatchback', label: 'Hatchback' },
-    { value: 'luxury', label: 'Luxury' },
-    { value: 'commercial', label: 'Commercial' },
-    { value: 'two-wheeler', label: 'Two Wheeler' },
+const talukaOptions = [
+    { value: 'Mul', label: 'Mul' },
+    { value: 'Chandrapur', label: 'Chandrapur' },
+    { value: 'Bramhapuri', label: 'Bramhapuri' },
+    { value: 'Warora', label: 'Warora' },
+    { value: 'Bhadravati', label: 'Bhadravati' },
+    { value: 'Chimur', label: 'Chimur' },
+    { value: 'Nagbhid', label: 'Nagbhid' },
+    { value: 'Sindewahi', label: 'Sindewahi' },
+    { value: 'Rajura', label: 'Rajura' },
+    { value: 'Gondpipri', label: 'Gondpipri' },
+    { value: 'Pombhurna', label: 'Pombhurna' },
+    { value: 'Jivati', label: 'Jivati' },
+    { value: 'Ballarpur', label: 'Ballarpur' },
+    { value: 'Korpana', label: 'Korpana' },
+    { value: 'Saoli', label: 'Saoli' },
 ];
 
 const salesPersonOptions = [
@@ -40,10 +44,10 @@ export default function Prospect() {
         email: '',
         address: '',
         city: '',
+        taluka: '',
 
         // Enquiry Details
         source: '',
-        vehicleType: '',
         model: '',
         budget: '',
         salesPerson: '',
@@ -100,8 +104,8 @@ export default function Prospect() {
             email: '',
             address: '',
             city: '',
+            taluka: '',
             source: '',
-            vehicleType: '',
             model: '',
             budget: '',
             salesPerson: '',
@@ -168,13 +172,24 @@ export default function Prospect() {
                                 rows={3}
                             />
 
-                            <Input
-                                label="City"
-                                name="city"
-                                value={formData.city}
-                                onChange={handleChange}
-                                placeholder="Enter city"
-                            />
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                                <Input
+                                    label="City"
+                                    name="city"
+                                    value={formData.city}
+                                    onChange={handleChange}
+                                    placeholder="Enter city"
+                                />
+                                <Select
+                                    label="Taluka"
+                                    name="taluka"
+                                    value={formData.taluka}
+                                    onChange={handleChange}
+                                    options={talukaOptions}
+                                    placeholder="Select taluka"
+                                    searchable
+                                />
+                            </div>
                         </div>
                     </CardBody>
                 </Card>
@@ -191,18 +206,8 @@ export default function Prospect() {
                                 onChange={handleChange}
                                 options={sourceOptions}
                                 placeholder="Select enquiry source"
-                                searchable
                                 required
                                 error={errors.source}
-                            />
-
-                            <Select
-                                label="Vehicle Type"
-                                name="vehicleType"
-                                value={formData.vehicleType}
-                                onChange={handleChange}
-                                options={vehicleTypeOptions}
-                                placeholder="Select vehicle type"
                             />
 
                             <Input

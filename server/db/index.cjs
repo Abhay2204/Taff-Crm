@@ -29,6 +29,7 @@ db.exec(`
     email TEXT,
     address TEXT,
     city TEXT,
+    taluka TEXT,
     source TEXT,
     vehicle_type TEXT,
     model TEXT,
@@ -36,6 +37,7 @@ db.exec(`
     status TEXT DEFAULT 'New',
     salesperson_id TEXT,
     remarks TEXT,
+    delivery_date DATE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (salesperson_id) REFERENCES users(id)
@@ -58,13 +60,35 @@ db.exec(`
     FOREIGN KEY (created_by) REFERENCES users(id)
   );
 
+  -- Services table (auto-generated when vehicle is delivered)
+  CREATE TABLE IF NOT EXISTS services (
+    id TEXT PRIMARY KEY,
+    prospect_id TEXT NOT NULL,
+    vehicle_model TEXT,
+    customer_name TEXT NOT NULL,
+    customer_mobile TEXT,
+    taluka TEXT,
+    delivery_date DATE NOT NULL,
+    service_month TEXT NOT NULL,
+    service_date DATE NOT NULL,
+    status TEXT DEFAULT 'Pending',
+    remarks TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (prospect_id) REFERENCES prospects(id)
+  );
+
   -- Create indexes for performance
   CREATE INDEX IF NOT EXISTS idx_prospects_status ON prospects(status);
   CREATE INDEX IF NOT EXISTS idx_prospects_created ON prospects(created_at);
   CREATE INDEX IF NOT EXISTS idx_prospects_salesperson ON prospects(salesperson_id);
+  CREATE INDEX IF NOT EXISTS idx_prospects_taluka ON prospects(taluka);
   CREATE INDEX IF NOT EXISTS idx_follow_ups_date ON follow_ups(follow_up_date);
   CREATE INDEX IF NOT EXISTS idx_follow_ups_status ON follow_ups(status);
   CREATE INDEX IF NOT EXISTS idx_follow_ups_prospect ON follow_ups(prospect_id);
+  CREATE INDEX IF NOT EXISTS idx_services_date ON services(service_date);
+  CREATE INDEX IF NOT EXISTS idx_services_status ON services(status);
+  CREATE INDEX IF NOT EXISTS idx_services_prospect ON services(prospect_id);
 `);
 
 module.exports = db;

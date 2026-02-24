@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -14,18 +14,17 @@ import {
   Building2,
   UserCog,
   Database,
-  ShoppingCart,
-  Package,
-  Truck,
-  FileInput,
-  FilePlus,
-  Receipt,
-  CreditCard,
-  BarChart3,
   TrendingUp,
+  Truck,
+  Receipt,
   IndianRupee,
-  FileOutput
+  BarChart3,
+  Wrench,
+  Bell,
+  Filter,
+  Clock
 } from 'lucide-react';
+import api from '../../services/api';
 
 const menuItems = [
   {
@@ -46,28 +45,26 @@ const menuItems = [
     ]
   },
   {
-    title: 'Purchase',
-    icon: ShoppingCart,
-    children: [
-      { title: 'Purchase Entry', path: '/purchase/entry', icon: FileInput },
-      { title: 'Purchase Order', path: '/purchase/order', icon: FilePlus },
-      { title: 'Goods Receipt', path: '/purchase/goods-receipt', icon: Package },
-      { title: 'Purchase Return', path: '/purchase/return', icon: FileOutput },
-      { title: 'Supplier Payment', path: '/purchase/payment', icon: CreditCard },
-      { title: 'Purchase Report', path: '/purchase/report', icon: BarChart3 }
-    ]
-  },
-  {
     title: 'Sales',
     icon: TrendingUp,
     children: [
-      { title: 'Sales Entry', path: '/sales/entry', icon: FileInput },
-      { title: 'Sales Order', path: '/sales/order', icon: FilePlus },
+      { title: 'Quotation', path: '/sales/quotation', icon: Receipt },
       { title: 'Invoice', path: '/sales/invoice', icon: Receipt },
       { title: 'Delivery Challan', path: '/sales/delivery', icon: Truck },
-      { title: 'Sales Return', path: '/sales/return', icon: FileOutput },
+      { title: 'Delivered Vehicles', path: '/sales/delivered-vehicles', icon: Truck },
       { title: 'Payment Receipt', path: '/sales/receipt', icon: IndianRupee },
       { title: 'Sales Report', path: '/sales/report', icon: BarChart3 }
+    ]
+  },
+  {
+    title: 'Service',
+    icon: Wrench,
+    hasBadge: true,
+    children: [
+      { title: 'All Services', path: '/service/all', icon: Wrench },
+      { title: 'Due Today', path: '/service/today', icon: Bell },
+      { title: 'Upcoming', path: '/service/upcoming', icon: Clock },
+      { title: 'Service Report', path: '/service/report', icon: BarChart3 },
     ]
   },
   {
@@ -89,7 +86,7 @@ const menuItems = [
   }
 ];
 
-function NavItem({ item, isOpen, onToggle }) {
+function NavItem({ item, isOpen, onToggle, badgeCount }) {
   const location = useLocation();
   const hasChildren = item.children && item.children.length > 0;
   const isActive = hasChildren
@@ -108,6 +105,9 @@ function NavItem({ item, isOpen, onToggle }) {
         >
           <Icon />
           <span className="nav-link-text">{item.title}</span>
+          {item.hasBadge && badgeCount > 0 && (
+            <span className="nav-badge">{badgeCount}</span>
+          )}
           <ChevronRight className={`nav-arrow ${isExpanded ? 'expanded' : ''}`} />
         </button>
         <div className={`nav-submenu ${isExpanded ? 'expanded' : ''}`}>
@@ -141,6 +141,23 @@ function NavItem({ item, isOpen, onToggle }) {
 
 export default function Sidebar({ isOpen, onClose }) {
   const [expandedItems, setExpandedItems] = useState(['Follow Up']);
+  const [todayServiceCount, setTodayServiceCount] = useState(0);
+
+  useEffect(() => {
+    loadServiceCount();
+    // Poll every 5 minutes
+    const interval = setInterval(loadServiceCount, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadServiceCount = async () => {
+    try {
+      const result = await api.getTodayServicesCount();
+      setTodayServiceCount(result.count || 0);
+    } catch (error) {
+      // Silently fail
+    }
+  };
 
   const toggleItem = (title) => {
     setExpandedItems(prev =>
@@ -170,6 +187,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 item={item}
                 isOpen={expandedItems.includes(item.title)}
                 onToggle={() => toggleItem(item.title)}
+                badgeCount={item.hasBadge ? todayServiceCount : 0}
               />
             ))}
           </div>

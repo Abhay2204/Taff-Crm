@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../services/api';
 import {
     Search,
     Bell,
@@ -8,7 +9,10 @@ import {
     User,
     Settings,
     LogOut,
-    ChevronDown
+    ChevronDown,
+    X,
+    Wrench,
+    Calendar
 } from 'lucide-react';
 
 const breadcrumbMap = {
@@ -20,6 +24,20 @@ const breadcrumbMap = {
     '/follow-up/view-prospect': 'View Prospect',
     '/follow-up/search-prospect': 'Search by Prospect',
     '/follow-up/register': 'FollowUp Register',
+    '/sales': 'Sales',
+    '/sales/quotation': 'Quotation',
+    '/sales/delivered-vehicles': 'Delivered Vehicles',
+    '/sales/invoice': 'Invoice',
+    '/sales/delivery': 'Delivery Challan',
+    '/sales/receipt': 'Payment Receipt',
+    '/sales/report': 'Sales Report',
+    '/service': 'Service',
+    '/service/all': 'All Services',
+    '/service/today': 'Due Today',
+    '/service/upcoming': 'Upcoming Services',
+    '/service/report': 'Service Report',
+    '/masters': 'Masters',
+    '/masters/staff': 'Staff Master',
     '/settings': 'Settings',
     '/help': 'Help'
 };
@@ -32,6 +50,17 @@ const pageTitles = {
     '/follow-up/view-prospect': 'View Prospects',
     '/follow-up/search-prospect': 'Search Prospects',
     '/follow-up/register': 'Follow Up Register',
+    '/sales/quotation': 'Quotation',
+    '/sales/delivered-vehicles': 'Delivered Vehicles',
+    '/sales/invoice': 'Invoice',
+    '/sales/delivery': 'Delivery Challan',
+    '/sales/receipt': 'Payment Receipt',
+    '/sales/report': 'Sales Report',
+    '/service/all': 'Service Management',
+    '/service/today': "Today's Services",
+    '/service/upcoming': 'Upcoming Services',
+    '/service/report': 'Service Report',
+    '/masters/staff': 'Staff Master',
     '/settings': 'Settings',
     '/help': 'Help & Support'
 };
@@ -41,19 +70,59 @@ export default function TopBar({ onMenuClick }) {
     const navigate = useNavigate();
     const { adminUser, logout } = useAuth();
     const [showProfile, setShowProfile] = useState(false);
+    const [showNotifications, setShowNotifications] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [todayServices, setTodayServices] = useState([]);
+    const [todayCount, setTodayCount] = useState(0);
     const dropdownRef = useRef(null);
+    const notifRef = useRef(null);
 
-    // Close dropdown when clicking outside
+    // Close dropdowns when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
                 setShowProfile(false);
             }
+            if (notifRef.current && !notifRef.current.contains(event.target)) {
+                setShowNotifications(false);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    // Load today's service count
+    useEffect(() => {
+        loadTodayServices();
+        const interval = setInterval(loadTodayServices, 5 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const loadTodayServices = async () => {
+        try {
+            const countResult = await api.getTodayServicesCount();
+            setTodayCount(countResult.count || 0);
+        } catch (error) {
+            // Silently fail
+        }
+    };
+
+    const loadTodayServiceDetails = async () => {
+        try {
+            const services = await api.getTodayServices();
+            setTodayServices(services || []);
+        } catch (error) {
+            setTodayServices([]);
+        }
+    };
+
+    const handleBellClick = () => {
+        if (!showNotifications) {
+            loadTodayServiceDetails();
+        }
+        setShowNotifications(!showNotifications);
+        setShowProfile(false);
+    };
 
     const getBreadcrumbs = () => {
         const paths = location.pathname.split('/').filter(Boolean);
@@ -119,15 +188,77 @@ export default function TopBar({ onMenuClick }) {
                     />
                 </div>
 
-                <button className="topbar-icon-btn">
-                    <Bell />
-                    <span className="notification-badge" />
-                </button>
+                {/* Bell Notification Icon */}
+                <div ref={notifRef} style={{ position: 'relative' }}>
+                    <button className="topbar-icon-btn" onClick={handleBellClick}>
+                        <Bell />
+                        {todayCount > 0 && (
+                            <span className="notification-badge notification-badge-count">{todayCount}</span>
+                        )}
+                    </button>
+
+                    {/* Notification Popup */}
+                    {showNotifications && (
+                        <div className="notification-popup">
+                            <div className="notification-popup-header">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Wrench size={16} style={{ color: 'var(--color-primary)' }} />
+                                    <span style={{ fontWeight: 600, fontSize: 'var(--font-size-md)' }}>Today's Vehicle Services</span>
+                                </div>
+                                <button
+                                    className="notification-popup-close"
+                                    onClick={() => setShowNotifications(false)}
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+                            <div className="notification-popup-body">
+                                {todayServices.length === 0 ? (
+                                    <div className="notification-empty">
+                                        <Calendar size={32} style={{ color: 'var(--color-text-muted)', marginBottom: '8px' }} />
+                                        <div style={{ fontWeight: 500 }}>No services due today</div>
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>All clear for now!</div>
+                                    </div>
+                                ) : (
+                                    todayServices.map(service => (
+                                        <div key={service.id} className="notification-item">
+                                            <div className="notification-item-icon">
+                                                <Wrench size={14} />
+                                            </div>
+                                            <div className="notification-item-content">
+                                                <div className="notification-item-title">{service.customer_name}</div>
+                                                <div className="notification-item-detail">
+                                                    {service.vehicle_model && <span>{service.vehicle_model} • </span>}
+                                                    <span>{service.customer_mobile}</span>
+                                                </div>
+                                                <div className="notification-item-badge">
+                                                    {service.service_month} Service
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            {todayServices.length > 0 && (
+                                <div className="notification-popup-footer">
+                                    <button
+                                        onClick={() => {
+                                            setShowNotifications(false);
+                                            navigate('/service/today');
+                                        }}
+                                    >
+                                        View All Services →
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
 
                 <div
                     className="topbar-profile"
                     ref={dropdownRef}
-                    onClick={() => setShowProfile(!showProfile)}
+                    onClick={() => { setShowProfile(!showProfile); setShowNotifications(false); }}
                     style={{ position: 'relative' }}
                 >
                     <div className="topbar-profile-avatar">{userInitials}</div>
