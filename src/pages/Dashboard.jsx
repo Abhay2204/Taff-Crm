@@ -23,7 +23,7 @@ export default function Dashboard() {
     const stats = store.getDashboardStats();
     const prospects = store.getRecentProspects();
     const todayFollowUps = store.getTodayFollowUps();
-    const upcomingServices = store.getUpcomingServices();
+    const upcomingServices = store.getUpcomingServices().slice(0, 3);
 
     // Removed loading state and useEffect as data is now synchronous from store
 
