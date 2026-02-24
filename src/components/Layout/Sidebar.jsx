@@ -9,8 +9,6 @@ import {
   Search,
   ClipboardList,
   ChevronRight,
-  Settings,
-  HelpCircle,
   Building2,
   UserCog,
   Database,
@@ -21,10 +19,12 @@ import {
   BarChart3,
   Wrench,
   Bell,
-  Filter,
-  Clock
+  Clock,
+  Tractor,
+  FileCheck,
+  FileSpreadsheet,
 } from 'lucide-react';
-import api from '../../services/api';
+import store from '../../services/store';
 
 const menuItems = [
   {
@@ -36,24 +36,24 @@ const menuItems = [
     title: 'Follow Up',
     icon: Users,
     children: [
-      { title: 'Prospect', path: '/follow-up/prospect', icon: UserPlus },
+      { title: 'Add Prospect', path: '/follow-up/prospect', icon: UserPlus },
       { title: 'Follow Up', path: '/follow-up/follow-up', icon: Calendar },
       { title: 'Schedule Report', path: '/follow-up/schedule-report', icon: FileText },
-      { title: 'View Prospect', path: '/follow-up/view-prospect', icon: Users },
-      { title: 'Search by Prospect', path: '/follow-up/search-prospect', icon: Search },
-      { title: 'FollowUp Register', path: '/follow-up/register', icon: ClipboardList }
+      { title: 'View Prospects', path: '/follow-up/view-prospect', icon: Users },
+      { title: 'Search Prospect', path: '/follow-up/search-prospect', icon: Search },
+      { title: 'Follow Up Register', path: '/follow-up/register', icon: ClipboardList },
     ]
   },
   {
     title: 'Sales',
     icon: TrendingUp,
     children: [
-      { title: 'Quotation', path: '/sales/quotation', icon: Receipt },
+      { title: 'Quotation', path: '/sales/quotation', icon: FileText },
       { title: 'Invoice', path: '/sales/invoice', icon: Receipt },
       { title: 'Delivery Challan', path: '/sales/delivery', icon: Truck },
-      { title: 'Delivered Vehicles', path: '/sales/delivered-vehicles', icon: Truck },
+      { title: 'Delivered Vehicles', path: '/sales/delivered-vehicles', icon: FileCheck },
       { title: 'Payment Receipt', path: '/sales/receipt', icon: IndianRupee },
-      { title: 'Sales Report', path: '/sales/report', icon: BarChart3 }
+      { title: 'Sales Report', path: '/sales/report', icon: BarChart3 },
     ]
   },
   {
@@ -71,19 +71,10 @@ const menuItems = [
     title: 'Masters',
     icon: Database,
     children: [
-      { title: 'Staff Master', path: '/masters/staff', icon: UserCog }
+      { title: 'Vehicle Master', path: '/masters/vehicle', icon: Tractor },
+      { title: 'Staff Master', path: '/masters/staff', icon: UserCog },
     ]
   },
-  {
-    title: 'Settings',
-    icon: Settings,
-    path: '/settings'
-  },
-  {
-    title: 'Help',
-    icon: HelpCircle,
-    path: '/help'
-  }
 ];
 
 function NavItem({ item, isOpen, onToggle, badgeCount }) {
@@ -93,7 +84,6 @@ function NavItem({ item, isOpen, onToggle, badgeCount }) {
     ? item.children.some(child => location.pathname === child.path)
     : location.pathname === item.path;
   const isExpanded = isOpen || isActive;
-
   const Icon = item.icon;
 
   if (hasChildren) {
@@ -144,20 +134,11 @@ export default function Sidebar({ isOpen, onClose }) {
   const [todayServiceCount, setTodayServiceCount] = useState(0);
 
   useEffect(() => {
-    loadServiceCount();
-    // Poll every 5 minutes
-    const interval = setInterval(loadServiceCount, 5 * 60 * 1000);
+    const loadCount = () => setTodayServiceCount(store.getTodayServices().length);
+    loadCount();
+    const interval = setInterval(loadCount, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
-
-  const loadServiceCount = async () => {
-    try {
-      const result = await api.getTodayServicesCount();
-      setTodayServiceCount(result.count || 0);
-    } catch (error) {
-      // Silently fail
-    }
-  };
 
   const toggleItem = (title) => {
     setExpandedItems(prev =>
@@ -174,7 +155,7 @@ export default function Sidebar({ isOpen, onClose }) {
         <div className="sidebar-header">
           <div className="sidebar-logo">
             <Building2 />
-            <span>CRM Pro</span>
+            <span>Chandrapur Motors</span>
           </div>
         </div>
 
@@ -197,7 +178,7 @@ export default function Sidebar({ isOpen, onClose }) {
           <div className="sidebar-user">
             <div className="sidebar-avatar">AS</div>
             <div className="sidebar-user-info">
-              <div className="sidebar-user-name">Admin Sales</div>
+              <div className="sidebar-user-name">Admin</div>
               <div className="sidebar-user-role">Sales Manager</div>
             </div>
           </div>

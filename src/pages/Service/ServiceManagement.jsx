@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Eye, Edit, Trash2, FileSpreadsheet, Filter, CheckCircle, Clock, AlertCircle, Wrench, Calendar } from 'lucide-react';
 import { Card, CardHeader, CardBody, Button, DataTable, Badge, Input, Select } from '../../components/UI';
 import { useToast } from '../../context/ToastContext';
-import api from '../../services/api';
+import store from '../../services/store';
 import { exportToExcel } from '../../utils/exportExcel';
 
 const talukaOptions = [
@@ -42,45 +42,27 @@ const serviceMonthOptions = [
 
 export default function ServiceManagement() {
     const toast = useToast();
-    const [services, setServices] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [services, setServices] = useState(() => store.getServices({ limit: 100 }).data);
+    const [loading] = useState(false);
     const [activeTab, setActiveTab] = useState('all');
     const [showFilters, setShowFilters] = useState(false);
     const [editingService, setEditingService] = useState(null);
     const [filters, setFilters] = useState({
-        taluka: '',
-        status: '',
-        serviceMonth: '',
-        fromDate: '',
-        toDate: '',
-        search: '',
+        taluka: '', status: '', serviceMonth: '', fromDate: '', toDate: '', search: '',
     });
 
-    useEffect(() => {
-        loadServices();
-    }, []);
-
-    const loadServices = async () => {
-        try {
-            setLoading(true);
-            const params = {};
-            if (filters.taluka) params.taluka = filters.taluka;
-            if (filters.status) params.status = filters.status;
-            if (filters.serviceMonth) params.serviceMonth = filters.serviceMonth;
-            if (filters.fromDate) params.fromDate = filters.fromDate;
-            if (filters.toDate) params.toDate = filters.toDate;
-            if (filters.search) params.search = filters.search;
-            params.limit = 100;
-
-            const result = await api.getServices(params);
-            setServices(result.data || []);
-        } catch (error) {
-            console.error('Failed to load services:', error);
-            toast.error('Failed to load services');
-        } finally {
-            setLoading(false);
-        }
+    const loadServices = () => {
+        const params = {};
+        if (filters.taluka) params.taluka = filters.taluka;
+        if (filters.status) params.status = filters.status;
+        if (filters.serviceMonth) params.serviceMonth = filters.serviceMonth;
+        if (filters.fromDate) params.fromDate = filters.fromDate;
+        if (filters.toDate) params.toDate = filters.toDate;
+        if (filters.search) params.search = filters.search;
+        params.limit = 100;
+        setServices(store.getServices(params).data);
     };
+
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
@@ -96,26 +78,18 @@ export default function ServiceManagement() {
         setTimeout(() => loadServices(), 100);
     };
 
-    const handleUpdateService = async (id, data) => {
-        try {
-            await api.updateService(id, data);
-            toast.success('Service updated successfully');
-            setEditingService(null);
-            loadServices();
-        } catch (error) {
-            toast.error('Failed to update service');
-        }
+    const handleUpdateService = (id, data) => {
+        store.updateService(id, data);
+        toast.success('Service updated successfully');
+        setEditingService(null);
+        loadServices();
     };
 
-    const handleDeleteService = async (id) => {
+    const handleDeleteService = (id) => {
         if (!confirm('Are you sure you want to delete this service record?')) return;
-        try {
-            await api.deleteService(id);
-            toast.success('Service deleted successfully');
-            loadServices();
-        } catch (error) {
-            toast.error('Failed to delete service');
-        }
+        store.deleteService(id);
+        toast.success('Service deleted successfully');
+        loadServices();
     };
 
     const getStatusBadge = (status, serviceDate) => {
@@ -232,9 +206,7 @@ export default function ServiceManagement() {
         exportToExcel(exportData, 'Services', 'Services');
     };
 
-    if (loading) {
-        return <div className="skeleton" style={{ height: '400px' }} />;
-    }
+
 
     return (
         <div>

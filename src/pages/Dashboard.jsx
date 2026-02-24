@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
-import { Users, TrendingUp, Calendar, Target, Clock, Wrench, Truck, FileSpreadsheet } from 'lucide-react';
+import { useState } from 'react';
+import { Users, TrendingUp, PhoneCall, AlertCircle, Clock, UserPlus, Wrench, Download } from 'lucide-react';
 import { Card, CardHeader, CardBody, StatCard, DataTable, Badge, Button } from '../components/UI';
 import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
+import store from '../services/store';
 import { exportToExcel } from '../utils/exportExcel';
 
 const prospectColumns = [
-    { key: 'name', label: 'Name', render: (_, row) => `${row.first_name} ${row.last_name || ''}` },
+    { key: 'name', label: 'Name', render: (_, row) => `${row.first_name} ${row.last_name || ''} ` },
     {
         key: 'status', label: 'Status', render: (v) => {
             const variants = { 'New': 'info', 'Contacted': 'warning', 'Follow Up': 'warning', 'Qualified': 'success', 'Converted': 'success', 'Delivered': 'success', 'Lost': 'danger' };
@@ -20,42 +20,16 @@ const prospectColumns = [
 
 export default function Dashboard() {
     const navigate = useNavigate();
-    const [stats, setStats] = useState(null);
-    const [prospects, setProspects] = useState([]);
-    const [todayFollowUps, setTodayFollowUps] = useState([]);
-    const [upcomingServices, setUpcomingServices] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const stats = store.getDashboardStats();
+    const prospects = store.getRecentProspects();
+    const todayFollowUps = store.getTodayFollowUps();
+    const upcomingServices = store.getUpcomingServices();
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    const loadData = async () => {
-        try {
-            const [statsData, prospectsData, followUpsData, servicesData] = await Promise.all([
-                api.getDashboardStats(),
-                api.getRecentProspects(),
-                api.getTodayFollowUps(),
-                api.getUpcomingServices(),
-            ]);
-            setStats(statsData);
-            setProspects(prospectsData);
-            setTodayFollowUps(followUpsData);
-            setUpcomingServices(servicesData || []);
-        } catch (error) {
-            console.error('Failed to load dashboard data:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    if (loading) {
-        return <div className="skeleton" style={{ height: '200px', marginBottom: '24px' }} />;
-    }
+    // Removed loading state and useEffect as data is now synchronous from store
 
     const handleExport = () => {
         const exportData = prospects.map(p => ({
-            Name: `${p.first_name} ${p.last_name || ''}`,
+            Name: `${p.first_name} ${p.last_name || ''} `,
             Status: p.status,
             Source: p.source,
             Salesperson: p.salesperson_name,
@@ -87,15 +61,15 @@ export default function Dashboard() {
             <div className="stats-grid">
                 <StatCard icon={Users} value={stats?.totalProspects || 0} label="Total Prospects" change={stats?.percentChange ? `${stats.percentChange}% from last month` : ''} changeType={stats?.percentChange >= 0 ? 'positive' : 'negative'} iconColor="primary" />
                 <StatCard icon={TrendingUp} value={stats?.conversions || 0} label="Conversions" iconColor="success" />
-                <StatCard icon={Calendar} value={stats?.pendingFollowUps || 0} label="Pending Follow-ups" change={`${stats?.todayFollowUps || 0} due today`} changeType="negative" iconColor="warning" />
-                <StatCard icon={Target} value={stats?.overdueFollowUps || 0} label="Overdue" iconColor="danger" />
+                <StatCard icon={PhoneCall} value={stats?.pendingFollowUps || 0} label="Pending Follow-ups" change={`${stats?.todayFollowUps || 0} due today`} changeType="negative" iconColor="warning" />
+                <StatCard icon={AlertCircle} value={stats?.overdueFollowUps || 0} label="Overdue" iconColor="danger" />
             </div>
 
             <div className="grid grid-cols-3" style={{ gap: 'var(--spacing-lg)' }}>
                 <div style={{ gridColumn: 'span 2' }}>
                     <Card>
                         <CardHeader actions={
-                            <Button variant="secondary" icon={FileSpreadsheet} onClick={handleExport}>
+                            <Button variant="secondary" icon={Download} onClick={handleExport}>
                                 Export to Excel
                             </Button>
                         }>Recent Prospects</CardHeader>
@@ -160,7 +134,7 @@ export default function Dashboard() {
                                             padding: 'var(--spacing-sm) var(--spacing-md)',
                                             borderRadius: 'var(--radius-md)',
                                             background: 'var(--color-background)',
-                                            borderLeft: `3px solid ${getServiceStatusColor(service.service_date)}`
+                                            borderLeft: `3px solid ${getServiceStatusColor(service.service_date)} `
                                         }}>
                                             <div style={{ flex: 1 }}>
                                                 <div style={{ fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>

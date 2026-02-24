@@ -1,9 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Save, X, Search, Plus, Trash2, LogOut, Eye, FileSpreadsheet } from 'lucide-react';
 import { Card, CardHeader, CardBody, Button, Input, Textarea, Select, Checkbox, DataTable, Badge } from '../../components/UI';
 import { useToast } from '../../context/ToastContext';
-import api from '../../services/api';
 import { exportToExcel } from '../../utils/exportExcel';
+
+const DEFAULT_STAFF_OPTIONS = [
+    { value: '1', label: 'ROHIT KANDULWAR' },
+    { value: '2', label: 'CHANDRASHEKHAR MOREY' },
+    { value: '3', label: 'YOGESH DEURMALE' },
+    { value: '4', label: 'VIJAY NARNAWARE' },
+    { value: '5', label: 'PRIYA SHARMA' },
+];
 
 const priorityOptions = [
     { value: 'high', label: 'High' },
@@ -53,7 +60,7 @@ const sampleHistory = [
 
 export default function FollowUp() {
     const toast = useToast();
-    const [staffOptions, setStaffOptions] = useState([]);
+    const staffOptions = DEFAULT_STAFF_OPTIONS;
     const [history, setHistory] = useState(sampleHistory);
     const [formData, setFormData] = useState({
         refNo: '',
@@ -63,32 +70,20 @@ export default function FollowUp() {
         location: 'showroom1',
         splRemarks: '',
         contactNo: '',
-        contactDate: '2026-01-31',
-        contactTime: '16:35',
+        contactDate: new Date().toISOString().split('T')[0],
+        contactTime: new Date().toTimeString().slice(0, 5),
         followType: '',
         enquiryStatus: '',
         followUpBy: '',
         remarks: '',
         actionTaken: '',
-        appointmentDate: '2026-01-31',
-        appointmentTime: '16:35',
+        appointmentDate: new Date().toISOString().split('T')[0],
+        appointmentTime: new Date().toTimeString().slice(0, 5),
         sendWhatsapp: false,
     });
 
     const [prospectFound, setProspectFound] = useState(false);
 
-    useEffect(() => {
-        loadStaff();
-    }, []);
-
-    const loadStaff = async () => {
-        try {
-            const users = await api.getUsers();
-            setStaffOptions(users.map(u => ({ value: u.id, label: u.name })));
-        } catch (error) {
-            console.error('Failed to load staff:', error);
-        }
-    };
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;

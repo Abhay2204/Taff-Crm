@@ -1,31 +1,19 @@
 {
-  "name": "professional-crm",
+  "name": "taff-crm",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "scripts": {
     "dev": "vite",
-    "server": "node api/index.js",
-    "dev:full": "start cmd /c npm run server && npm run dev",
-    "seed": "node server/db/seed-mongo.cjs",
-    "seed:local": "node server/db/seed.cjs",
-    "backup": "node server/scripts/backup.cjs",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "vercel-build": "vite build"
   },
   "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "cors": "^2.8.6",
-    "dotenv": "^17.2.3",
-    "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.563.0",
-    "mongoose": "^9.2.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.0",
-    "uuid": "^13.0.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
@@ -38,8 +26,5 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "vite": "^7.2.4"
-  },
-  "optionalDependencies": {
-    "better-sqlite3": "^12.6.2"
   }
 }

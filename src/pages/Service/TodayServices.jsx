@@ -1,40 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { CheckCircle, Calendar, Phone, Wrench, FileSpreadsheet } from 'lucide-react';
 import { Card, CardHeader, CardBody, Button, Badge } from '../../components/UI';
 import { useToast } from '../../context/ToastContext';
-import api from '../../services/api';
+import store from '../../services/store';
 import { exportToExcel } from '../../utils/exportExcel';
 
 export default function TodayServices() {
     const toast = useToast();
-    const [services, setServices] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [services, setServices] = useState(() => store.getTodayServices());
 
-    useEffect(() => {
-        loadTodayServices();
-    }, []);
+    const reload = () => setServices(store.getTodayServices());
 
-    const loadTodayServices = async () => {
-        try {
-            setLoading(true);
-            const data = await api.getTodayServices();
-            setServices(data || []);
-        } catch (error) {
-            console.error('Failed to load today services:', error);
-            toast.error('Failed to load today\'s services');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleMarkCompleted = async (id) => {
-        try {
-            await api.updateService(id, { status: 'Completed' });
-            toast.success('Service marked as completed');
-            loadTodayServices();
-        } catch (error) {
-            toast.error('Failed to update service');
-        }
+    const handleMarkCompleted = (id) => {
+        store.updateService(id, { status: 'Completed' });
+        toast.success('Service marked as completed');
+        reload();
     };
 
     const handleExport = () => {
@@ -48,10 +28,6 @@ export default function TodayServices() {
         }));
         exportToExcel(exportData, 'Today_Services', 'Today');
     };
-
-    if (loading) {
-        return <div className="skeleton" style={{ height: '300px' }} />;
-    }
 
     return (
         <div>
@@ -87,8 +63,7 @@ export default function TodayServices() {
                                         <div style={{
                                             width: '44px', height: '44px', borderRadius: 'var(--radius-lg)',
                                             background: 'var(--color-warning-light)',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            flexShrink: 0
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                                         }}>
                                             <Wrench size={20} style={{ color: 'var(--color-warning)' }} />
                                         </div>
@@ -100,12 +75,8 @@ export default function TodayServices() {
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                     <Phone size={12} /> {service.customer_mobile}
                                                 </span>
-                                                {service.vehicle_model && (
-                                                    <span>🚗 {service.vehicle_model}</span>
-                                                )}
-                                                {service.taluka && (
-                                                    <span>📍 {service.taluka}</span>
-                                                )}
+                                                {service.vehicle_model && <span>🚜 {service.vehicle_model}</span>}
+                                                {service.taluka && <span>📍 {service.taluka}</span>}
                                             </div>
                                             <div style={{ marginTop: '8px', display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
                                                 <Badge variant="warning">{service.service_month} Service</Badge>
@@ -115,11 +86,7 @@ export default function TodayServices() {
                                             </div>
                                         </div>
                                     </div>
-                                    <Button
-                                        variant="primary"
-                                        icon={CheckCircle}
-                                        onClick={() => handleMarkCompleted(service.id)}
-                                    >
+                                    <Button variant="primary" icon={CheckCircle} onClick={() => handleMarkCompleted(service.id)}>
                                         Mark Done
                                     </Button>
                                 </div>
