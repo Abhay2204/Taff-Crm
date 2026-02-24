@@ -1,7 +1,15 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const express = require('express');
 const cors = require('cors');
 const { connectDB } = require('./db/mongodb.cjs');
+
+// Log environment status for debugging on Vercel
+console.log('🔧 Environment check:', {
+    NODE_ENV: process.env.NODE_ENV || 'not set',
+    MONGODB_URI: process.env.MONGODB_URI ? '✅ Set' : '❌ MISSING',
+    JWT_SECRET: process.env.JWT_SECRET ? '✅ Set' : '❌ MISSING',
+});
 
 const authRoutes = require('./routes/auth.cjs');
 const prospectsRoutes = require('./routes/prospects.cjs');

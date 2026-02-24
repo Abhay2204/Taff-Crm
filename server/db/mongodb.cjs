@@ -28,10 +28,12 @@ async function connectDB() {
     }
 }
 
-// Graceful shutdown
-process.on('SIGINT', async () => {
-    await mongoose.connection.close();
-    process.exit(0);
-});
+// Graceful shutdown (only for local dev, not serverless)
+if (process.env.NODE_ENV !== 'production') {
+    process.on('SIGINT', async () => {
+        await mongoose.connection.close();
+        process.exit(0);
+    });
+}
 
 module.exports = { connectDB };
