@@ -13,9 +13,21 @@ const app = express();
 
 // Middleware
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production'
-        ? [process.env.FRONTEND_URL, /\.vercel\.app$/]
-        : ['http://localhost:5173', 'http://localhost:3000'],
+    origin: function (origin, callback) {
+        // Allow requests with no origin (same-origin, Postman, server-to-server)
+        if (!origin) return callback(null, true);
+        // In production, allow Vercel domains
+        if (process.env.NODE_ENV === 'production') {
+            if (/\.vercel\.app$/.test(origin) || origin === process.env.FRONTEND_URL) {
+                return callback(null, true);
+            }
+        }
+        // In development, allow localhost
+        if (/localhost/.test(origin)) {
+            return callback(null, true);
+        }
+        callback(null, true); // Allow all for now
+    },
     credentials: true
 }));
 app.use(express.json());
