@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import {
     Search,
     Bell,
@@ -37,8 +38,22 @@ const pageTitles = {
 
 export default function TopBar({ onMenuClick }) {
     const location = useLocation();
+    const navigate = useNavigate();
+    const { adminUser, logout } = useAuth();
     const [showProfile, setShowProfile] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const dropdownRef = useRef(null);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setShowProfile(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const getBreadcrumbs = () => {
         const paths = location.pathname.split('/').filter(Boolean);
@@ -58,8 +73,17 @@ export default function TopBar({ onMenuClick }) {
         return breadcrumbs;
     };
 
+    const handleLogout = () => {
+        setShowProfile(false);
+        logout();
+        navigate('/login', { replace: true });
+    };
+
     const pageTitle = pageTitles[location.pathname] || 'Dashboard';
     const breadcrumbs = getBreadcrumbs();
+    const userInitials = adminUser?.name
+        ? adminUser.name.split(' ').map(n => n[0]).join('').toUpperCase()
+        : 'AS';
 
     return (
         <header className="topbar">
@@ -102,13 +126,14 @@ export default function TopBar({ onMenuClick }) {
 
                 <div
                     className="topbar-profile"
+                    ref={dropdownRef}
                     onClick={() => setShowProfile(!showProfile)}
                     style={{ position: 'relative' }}
                 >
-                    <div className="topbar-profile-avatar">AS</div>
+                    <div className="topbar-profile-avatar">{userInitials}</div>
                     <div className="topbar-profile-info">
-                        <div className="topbar-profile-name">Admin Sales</div>
-                        <div className="topbar-profile-role">Sales Manager</div>
+                        <div className="topbar-profile-name">{adminUser?.name || 'Admin Sales'}</div>
+                        <div className="topbar-profile-role">{adminUser?.role || 'Sales Manager'}</div>
                     </div>
                     <ChevronDown size={16} />
 
@@ -123,7 +148,7 @@ export default function TopBar({ onMenuClick }) {
                                 <span>Settings</span>
                             </button>
                             <div className="dropdown-divider" />
-                            <button className="dropdown-item">
+                            <button className="dropdown-item logout-item" onClick={handleLogout}>
                                 <LogOut />
                                 <span>Logout</span>
                             </button>

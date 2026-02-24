@@ -436,6 +436,11 @@
     margin: var(--spacing-xs) 0;
 }
 
+.dropdown-item.logout-item:hover {
+    background: var(--color-danger-light);
+    color: var(--color-danger);
+}
+
 /* ======= UI COMPONENTS ======= */
 
 /* Card */
