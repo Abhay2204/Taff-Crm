@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "server": "node server/index.cjs",
+    "server": "node api/index.js",
     "dev:full": "start cmd /c npm run server && npm run dev",
     "seed": "node server/db/seed-mongo.cjs",
     "seed:local": "node server/db/seed.cjs",
