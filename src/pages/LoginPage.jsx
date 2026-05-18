@@ -67,8 +67,8 @@ export default function LoginPage() {
                         <div className="login-branding-icon">
                             <Shield size={48} />
                         </div>
-                        <h1 className="login-branding-title">CHANDRAPUR MOTORS<br />& TRACTORS</h1>
-                        <p className="login-branding-subtitle">TAFE : 25-26</p>
+                        <h1 className="login-branding-title">SHIV TRACTORS<br />AND MOTORS</h1>
+                        <p className="login-branding-subtitle">CRM NAGPUR</p>
                         <div className="login-branding-divider"></div>
                     </div>
                     <div className="login-branding-footer">

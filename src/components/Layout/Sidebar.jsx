@@ -155,7 +155,7 @@ export default function Sidebar({ isOpen, onClose }) {
         <div className="sidebar-header">
           <div className="sidebar-logo">
             <Building2 />
-            <span>Chandrapur Motors</span>
+            <span>Shiv Tractors and Motors</span>
           </div>
         </div>
 

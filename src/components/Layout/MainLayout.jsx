@@ -19,8 +19,8 @@ export default function MainLayout() {
             {/* Company Header - Full Width */}
             <div className="company-header">
                 <div className="company-header-content">
-                    <h1 className="company-name">CHANDRAPUR MOTORS & TRACTORS</h1>
-                    <span className="company-badge">TAFE :25-26</span>
+                    <h1 className="company-name">SHIV TRACTORS AND MOTORS</h1>
+                    <span className="company-badge">CRM NAGPUR</span>
                 </div>
             </div>
 
